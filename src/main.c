@@ -2,15 +2,25 @@
 
 int main(void)
 {
-    const int screenWidth = 800;
-    const int screenHeight = 600;
+    const int screenWidth = 1920,
+          screenHeight = 1200,
+          minScreenWidth = 810,
+          minScreenHeight = 600;
 
-    InitWindow(screenWidth, screenHeight, "GAME");
+    SetConfigFlags(
+            FLAG_WINDOW_RESIZABLE | // enable resizable window
+            FLAG_VSYNC_HINT |       // enable vsync
+            FLAG_MSAA_4X_HINT);     // enable anti-alias
+
+    InitWindow(screenWidth, screenHeight, "GAME TITLE");
+
+    SetWindowMinSize(minScreenWidth, minScreenHeight);
 
     while (!WindowShouldClose())
     {
         BeginDrawing();
         ClearBackground(BLACK);
+        DrawRectangle(100, 250, 500, 500, LIME);
         EndDrawing();
     }
 
