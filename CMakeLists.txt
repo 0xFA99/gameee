@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
-project(rpg_game C)
+project(gameee C)
 
 set(CMAKE_C_STANDARD 99)
 
@@ -16,31 +16,31 @@ set(SOURCES
         src/main.c
 )
 
-add_executable(rpg ${SOURCES})
+add_executable(gameee ${SOURCES})
 if(WIN32)
-    target_link_libraries(rpg raylib)
+    target_link_libraries(gameee raylib)
 else()
-    target_link_libraries(rpg raylib m)
+    target_link_libraries(gameee raylib m)
 endif()
 
-set_target_properties(rpg PROPERTIES
+set_target_properties(gameee PROPERTIES
         BUILD_WITH_INSTALL_RPATH TRUE
         INSTALL_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/lib"
 )
 
 if(WIN32)
-    add_custom_command(TARGET rpg POST_BUILD
+    add_custom_command(TARGET gameee POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/lib"
-        $<TARGET_FILE_DIR:rpg>
+        $<TARGET_FILE_DIR:gameee>
         COMMENT "Copying all libraries to build directory")
     
-    set_target_properties(rpg PROPERTIES
-        VS_DEBUGLER_WORKING_DIRECTORY $<TARGET_FILE_DIR:rpg>)
+    set_target_properties(gameee PROPERTIES
+        VS_DEBUGLER_WORKING_DIRECTORY $<TARGET_FILE_DIR:gameee>)
 endif()
 
-add_custom_command(TARGET rpg POST_BUILD
+add_custom_command(TARGET gameee POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/assets"
-        "$<TARGET_FILE_DIR:rpg>/assets"
+        "$<TARGET_FILE_DIR:gameee>/assets"
 )
