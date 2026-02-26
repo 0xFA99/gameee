@@ -29,6 +29,9 @@ Jalankan game
 ./gameee.exe
 ```
 
+# Dokumentasi game
+Dokumentasi terkait game, mekanik bisa dilihat di docs Excalidraw_docs.md
+
 # How to contribute 
 cek contribute md
 
