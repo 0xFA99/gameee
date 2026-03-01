@@ -1,3 +1,5 @@
+*.mdp
+
 cmake-build-debug
 build/
 .cache/
