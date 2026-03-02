@@ -17,6 +17,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include <stdalign.h>
+#include <stdlib.h>
 
 #define MMAPALLOC "mmapalloc: "
 #define ARENA_CONTEXT_DEFAULT_INIT_SIZE (1024 * 32)
@@ -27,12 +28,15 @@
 #define CHUNK_CONTEXT_FREE 1
 #define CHUNK_CONTEXT_USED 0
 
+#define MMAPALLOC_MAGIC 0xFFFF0000
+
 union ChunkContext
 {
     struct
     {
         size_t size_chunk;
         unsigned int is_free_chunk;
+        unsigned int chunk_magic;
         union ChunkContext *next_chunk;
     } stub;
     char align[16];
@@ -43,6 +47,7 @@ struct ArenaContext
     size_t size_arena;
     size_t offset_arena;
     size_t block_active_arena;
+    unsigned int magic_number_arena;
 
     union ChunkContext *head_list_chunk;
     union ChunkContext *tail_list_chunk;
@@ -75,6 +80,7 @@ static void *arena_init_context()
     arena_ctx->offset_arena = ALIGN_UP(sizeof(struct ArenaContext));
     arena_ctx->block_active_arena = 0;
     arena_ctx->next_arena = NULL;
+    arena_ctx->magic_number_arena = MMAPALLOC_MAGIC;
 
     arena_ctx->head_list_chunk = NULL;
     arena_ctx->tail_list_chunk = NULL;
@@ -130,14 +136,17 @@ static inline void coalesing_chunk()
 }
 
 /*
- * allocated memory size N
+ * @brief allocated memory size N
+ *
+ * @param size_t size
+ * @return (void *)ptr memory
  */
 void *mmapalloc(size_t size)
 {
     size = ALIGN_UP(size);
+    pthread_mutex_lock(&mmapalloc_mutex_guard);
     if (!global_head_arena)
     {
-      pthread_mutex_lock(&mmapalloc_mutex_guard);
         global_head_arena = arena_init_context();
         if (!global_head_arena)
         {
@@ -171,6 +180,7 @@ void *mmapalloc(size_t size)
 
     new_chunk_context->stub.is_free_chunk = CHUNK_CONTEXT_USED;
     new_chunk_context->stub.size_chunk = size;
+    new_chunk_context->stub.chunk_magic = MMAPALLOC_MAGIC;
     new_chunk_context->stub.next_chunk = NULL;
 
     if (!arena_ctx_current->head_list_chunk)
@@ -187,6 +197,11 @@ void *mmapalloc(size_t size)
     return (void *)((uintptr_t)new_chunk_context + sizeof(union ChunkContext));
 }
 
+/*
+ * @brief mmapfree() free chunk memory
+ *
+ * @param void *chunk_ptr
+ */
 void mmapfree(void *chunk_ptr){
   if(!chunk_ptr) {
     fprintf(stderr,MMAPALLOC "pointer invalid\n");
@@ -199,9 +214,40 @@ void mmapfree(void *chunk_ptr){
     __builtin_trap();
   }
 
+  if (current_chunk_ctx_2_free->stub.chunk_magic != MMAPALLOC_MAGIC)
+  {
+      fprintf(stderr,MMAPALLOC "magic number invalid/corrupt\n");
+      __builtin_trap();
+  }
   current_chunk_ctx_2_free->stub.is_free_chunk = CHUNK_CONTEXT_FREE;
   global_head_arena->block_active_arena--;
   coalesing_chunk();
+}
+
+/*
+ * @brief mmapalloc_destroy() Destroy entire arena
+ *
+ * @return history of block active
+ */
+int mmapalloc_destroy()
+{
+    if (!global_head_arena)
+    {
+        fprintf(stderr,MMAPALLOC "invalid destroy arena\n");
+        return EXIT_FAILURE;
+    }
+    int block_free = global_head_arena->block_active_arena;
+    if (global_head_arena->magic_number_arena == MMAPALLOC_MAGIC)
+    {
+        if (global_head_arena) return munmap((void *)global_head_arena,
+            global_head_arena->size_arena + sizeof(struct ArenaContext));
+        fprintf(stderr,MMAPALLOC "failed to destroy arena\n");
+    } else
+    {
+        fprintf(stderr,MMAPALLOC "resource corrupt\n");
+        return EXIT_FAILURE;
+    }
+    return block_free;
 }
 
 // Hoam ngantuk

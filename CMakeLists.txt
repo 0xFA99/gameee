@@ -5,6 +5,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 project(gameee C)
 
 set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib)
 set(CMAKE_BUILD_RPATH ${CMAKE_CURRENT_SOURCE_DIR}/lib)
@@ -14,6 +15,8 @@ include_directories(include)
 
 set(SOURCES
         src/main.c
+        include/mmapalloc.h
+        src/mmapalloc.c
 )
 
 add_executable(gameee ${SOURCES})
