@@ -290,10 +290,10 @@ int mmapalloc_destroy()
         return EXIT_FAILURE;
     }
 
-    int block_remaining = (int)global_head_arena->block_active_arena;
+    int block_remaining = global_head_arena->block_active_arena;
     size_t total_size   = global_head_arena->size_arena + sizeof(struct ArenaContext);
 
-    int ret = os_free((void *)global_head_arena, total_size);
+    int ret = os_free(global_head_arena, total_size);
     global_head_arena = NULL;
     global_tail_arena = NULL;
 

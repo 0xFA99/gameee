@@ -7,7 +7,41 @@
 
 #define GAMEEE "gameee"
 #define GAMEEE_DEFAULT_FPS 60
-#define GAMEEE_MAX_CONTEXT_SWITCH 3
+#define GAMEEE_MAX_CONTEXT_SWITCH 5
+
+#ifdef _WIN_32
+#include <windows.h>
+    // menggunakan API Nvidia untuk memakai GPU
+    __declspec(dllexport) DWORD NvOptimusEnablement = 1;
+    // menggunakan API AMD untuk memakai GPU
+__declspec(dllexport) int AmdPowerXpressRequestHighPerfomance = 1;
+
+#endif /* ifdef __WIN_32  #include <windows.h> __declspec(dllexport) */
+
+enum GameeeContextFlags
+{
+    MainWindows,
+    MenuWindows,
+    OptionWindows,
+    None
+};
+
+struct GameeeContextMetadata {
+    bool windowsLifetime;
+    enum GameeeContextFlags windowPrev;
+};
+
+struct GameeeContextAssets {
+    Vector2 vec;
+    void *all_castable_metadata;
+};
+
+struct GameeeContextSwitching {
+    enum GameeeContextFlags (*switchWindows[GAMEEE_MAX_CONTEXT_SWITCH])(
+        struct GameeeContextMetadata *, struct GameeeContextAssets *);
+};
+
+// structure obj
 
 typedef struct {
     Rectangle bounds;
@@ -17,14 +51,14 @@ typedef struct {
     int textSize;
 } Button;
 
-bool IsButtonPressed(Button *btn) {
+static bool IsButtonPressed(Button *btn) {
     if (CheckCollisionPointRec(GetMousePosition(), btn->bounds) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         return true;
     }
     return false;
 }
 
-void DrawButton(Button *btn) {
+static void DrawButton(Button *btn) {
     // Uncomment the code below to enable center text alignment
     // and change X position parameter of the text in DrawText to textX
     // int textWidth = MeasureText(btn->text, btn->textSize);
@@ -35,57 +69,39 @@ void DrawButton(Button *btn) {
     DrawText(btn->text, btn->bounds.x + 20.0f, textY, btn->textSize, btn->textColor);
 }
 
-enum GameeeContextFlags { MainWindows, MenuWindows, OptionWindows, None };
-
-struct GameeeContextMetadata {
-    bool windowsLifetime;
-    enum GameeeContextFlags windowPrev;
-};
-
-struct GameeeContextAssets {
-    Vector2 vec;
-};
-
-struct GameeeContextSwitching {
-    enum GameeeContextFlags (*switchWindows[GAMEEE_MAX_CONTEXT_SWITCH])(
-        struct GameeeContextMetadata *, struct GameeeContextAssets *);
-};
-
 // Main State
 
-enum GameeeContextFlags MainWin(struct GameeeContextMetadata *metadata,
-                                struct GameeeContextAssets *shared) {
-#ifdef _WIN_32
-#include <windows.h>
-    // menggunakan API Nvidia untuk memakai GPU
-    __declspec(dllexport) DWORD NvOptimusEnablement = 1;
-    // menggunakan API AMD untuk memakai GPU
-    __declspec(dllexport) int AmdPowerXpressRequestHighPerfomance = 1;
-
-#endif /* ifdef __WIN_32  #include <windows.h> __declspec(dllexport) */
-
-    Button btnResume = {
+static Button *ConstructorButtonMainWin(Button *MainWinButton)
+{
+    MainWinButton[0] = (Button){
         .bounds = (Rectangle){ 100.0f, 200.0f, 200.0f, 50.0f},
         .bgColor = DARKGRAY,
         .text = "RESUME",
         .textColor = WHITE,
-        .textSize = 30,
+        .textSize = 30
     };
-    Button btnOption = {
+
+    MainWinButton[1] = (Button){
         .bounds = (Rectangle){ 100.0f, 270.0f, 200.0f, 50.0f},
         .bgColor = DARKGRAY,
         .text = "OPTION",
         .textColor = WHITE,
-        .textSize = 30,
+        .textSize = 30
     };
-    Button btnReturn = {
+
+    MainWinButton[2] = (Button){
         .bounds = (Rectangle){ 100.0f, 340.0f, 200.0f, 50.0f},
         .bgColor = DARKGRAY,
         .text = "RETURN",
         .textColor = WHITE,
-        .textSize = 30,
+        .textSize = 30
     };
+}
 
+static enum GameeeContextFlags MainWin(struct GameeeContextMetadata *metadata,
+                                struct GameeeContextAssets *shared) {
+
+    Button *btnArray = (Button *)shared[MainWindows].all_castable_metadata;
     Vector2 *vec = &shared[MainWindows].vec;
     // event handler
     if (IsKeyPressed(KEY_A)) {
@@ -95,56 +111,64 @@ enum GameeeContextFlags MainWin(struct GameeeContextMetadata *metadata,
         vec->y += 10;
     }
 
-    if (IsButtonPressed(&btnResume)) return MainWindows;
-    if (IsButtonPressed(&btnOption)) {
+    if (IsButtonPressed(&btnArray[0])) return MainWindows;
+    if (IsButtonPressed(&btnArray[1])) {
         metadata->windowPrev = MainWindows;
         return OptionWindows;
     }
-    if (IsButtonPressed(&btnReturn)) return MenuWindows;
+    if (IsButtonPressed(&btnArray[2])) return MenuWindows;
 
     ClearBackground(BLACK);
     DrawText("MAIN WINDOWS", 100, 100, 50, WHITE);
     DrawRectangle(50, 100, (int)vec->x, (int)vec->y, LIME);
-    DrawButton(&btnResume);
-    DrawButton(&btnOption);
-    DrawButton(&btnReturn);
+    DrawButton(&btnArray[0]);
+    DrawButton(&btnArray[1]);
+    DrawButton(&btnArray[2]);
 
     return MainWindows;
 }
 
 // Menu State
 
-enum GameeeContextFlags MenuWin(struct GameeeContextMetadata *metadata,
-                                struct GameeeContextAssets *shared) {
-    Button btnNewGame = {
+static void ConstructorButtonMenuWin(Button *MenuButtonArray)
+{
+    MenuButtonArray[0] = (Button){
         .bounds = (Rectangle){ 100.0f, 200.0f, 200.0f, 50.0f},
         .bgColor = DARKGRAY,
         .text = "NEW GAME",
         .textColor = WHITE,
         .textSize = 30,
     };
-    Button btnContinue = {
+
+    MenuButtonArray[1] = (Button){
         .bounds = (Rectangle){ 100.0f, 270.0f, 200.0f, 50.0f},
         .bgColor = DARKGRAY,
         .text = "CONTINUE",
         .textColor = WHITE,
-        .textSize = 30,
+        .textSize = 30
     };
-    Button btnOption = {
+
+    MenuButtonArray[2] = (Button){
         .bounds = (Rectangle){ 100.0f, 340.0f, 200.0f, 50.0f},
         .bgColor = DARKGRAY,
         .text = "OPTION",
         .textColor = WHITE,
         .textSize = 30,
     };
-    Button btnExit = {
+
+    MenuButtonArray[3] = (Button){
         .bounds = (Rectangle){ 100.0f, 410.0f, 200.0f, 50.0f},
         .bgColor = DARKGRAY,
         .text = "EXIT",
         .textColor = WHITE,
         .textSize = 30,
     };
+}
 
+static enum GameeeContextFlags MenuWin(struct GameeeContextMetadata *metadata,
+                                struct GameeeContextAssets *shared) {
+
+    Button *btnArray = (Button *)shared[MenuWindows].all_castable_metadata;
     Vector2 *vec = &shared[MenuWindows].vec;
     if (IsKeyPressed(KEY_A)) {
         return MainWindows;
@@ -152,48 +176,53 @@ enum GameeeContextFlags MenuWin(struct GameeeContextMetadata *metadata,
     if (IsKeyDown(KEY_SPACE)) {
         vec->y += 10;
     }
-    if (IsButtonPressed(&btnNewGame)) return MainWindows;
-    if (IsButtonPressed(&btnContinue)) return MainWindows;
-    if (IsButtonPressed(&btnOption)) {
+    if (IsButtonPressed(&btnArray[0])) return MainWindows;
+    if (IsButtonPressed(&btnArray[1])) return MainWindows;
+    if (IsButtonPressed(&btnArray[2])) {
         metadata->windowPrev = MenuWindows;
         return OptionWindows;
     }
-    if (IsButtonPressed(&btnExit)) CloseWindow();
+    if (IsButtonPressed(&btnArray[3])) metadata->windowsLifetime = false;
 
     ClearBackground(BLACK);
     DrawText("MENU WINDOWS", 100, 100, 50, WHITE);
     DrawRectangle(50, 100, (int)vec->x, (int)vec->y, SKYBLUE);
-    DrawButton(&btnNewGame);
-    DrawButton(&btnContinue);
-    DrawButton(&btnOption);
-    DrawButton(&btnExit);
+    DrawButton(&btnArray[0]);
+    DrawButton(&btnArray[1]);
+    DrawButton(&btnArray[2]);
+    DrawButton(&btnArray[3]);
 
     return MenuWindows;
 }
 
 // Option State
 
-enum GameeeContextFlags OptionWin(struct GameeeContextMetadata *metadata,
-                                struct GameeeContextAssets *shared) {
-    Button btnReturn = {
+static void ConstructorButtonOptionWin(Button *OptionButtonArray)
+{
+    OptionButtonArray[0] = (Button){
         .bounds = (Rectangle){ 100.0f, 200.0f, 200.0f, 50.0f},
         .bgColor = DARKGRAY,
         .text = "RETURN",
         .textColor = WHITE,
         .textSize = 30,
     };
+}
 
+static enum GameeeContextFlags OptionWin(struct GameeeContextMetadata *metadata,
+                                struct GameeeContextAssets *shared) {
+
+    Button *btnArray = (Button *)shared[OptionWindows].all_castable_metadata;
     if (IsKeyPressed(KEY_A)) {
         return MainWindows;
     }
-    if (IsButtonPressed(&btnReturn)) {
+    if (IsButtonPressed(&btnArray[0])) {
         if (metadata->windowPrev == MainWindows) return MainWindows;
         if (metadata->windowPrev == MenuWindows) return MenuWindows;
     }
 
     ClearBackground(BLACK);
     DrawText("OPTION WINDOWS", 100, 100, 50, WHITE);
-    DrawButton(&btnReturn);
+    DrawButton(&btnArray[0]);
 
     return OptionWindows;
 }
@@ -213,6 +242,7 @@ int main(void) {
                    FLAG_MSAA_4X_HINT);     // enable anti-alias
 
     InitWindow(screenWidth, screenHeight, GAMEEE);
+    SetExitKey(KEY_NULL);
     SetWindowMinSize(minScreenWidth, minScreenHeight);
 
     SetTargetFPS(GAMEEE_DEFAULT_FPS);
@@ -230,6 +260,18 @@ int main(void) {
     context_assets[MainWindows].vec = (Vector2){10, 20};
     context_assets[MenuWindows].vec = (Vector2){10, 20};
 
+    Button MainWinButtonMember[3];
+    Button MenuWinButtonMember[4];
+    Button OptionWinButtonMember[1];
+
+    ConstructorButtonMainWin(MainWinButtonMember);
+    ConstructorButtonMenuWin(MenuWinButtonMember);
+    ConstructorButtonOptionWin(OptionWinButtonMember);
+
+    context_assets[MainWindows].all_castable_metadata = &MainWinButtonMember;
+    context_assets[MenuWindows].all_castable_metadata = &MenuWinButtonMember;
+    context_assets[OptionWindows].all_castable_metadata = &OptionWinButtonMember;
+
     struct GameeeContextSwitching switchCtx;
     /*
      * fungsi struct switch context,menyimpan function to ptr
@@ -241,7 +283,7 @@ int main(void) {
 
     enum GameeeContextFlags flagsCtx = MenuWindows;
 
-    while (!WindowShouldClose()) {
+    while (!WindowShouldClose() && mdata.windowsLifetime) {
         BeginDrawing();
         switch (switchCtx.switchWindows[flagsCtx](&mdata, context_assets)) {
         case MainWindows:
@@ -264,6 +306,6 @@ int main(void) {
     }
 
     CloseWindow();
-    fprintf(stdout, "INFO : Block active %d\n", mmapalloc_destroy());
+    fprintf(stdout, "INFO : Block active history %d\n", mmapalloc_destroy());
     return 0;
 }
