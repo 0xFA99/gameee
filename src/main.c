@@ -7,7 +7,6 @@
 
 #define GAMEEE "gameee"
 #define GAMEEE_DEFAULT_FPS 60
-#define GAMEEE_MAX_CONTEXT_SWITCH 5
 
 #ifdef _WIN_32
 #include <windows.h>
@@ -37,7 +36,7 @@ struct GameeeContextAssets {
 };
 
 struct GameeeContextSwitching {
-    enum GameeeContextFlags (*switchWindows[GAMEEE_MAX_CONTEXT_SWITCH])(
+    enum GameeeContextFlags (*switchWindows[None])(
         struct GameeeContextMetadata *, struct GameeeContextAssets *);
 };
 
@@ -59,17 +58,18 @@ static bool IsButtonPressed(Button *btn) {
 }
 
 static void DrawButton(Button *btn) {
-    // Uncomment the code below to enable center text alignment
-    // and change X position parameter of the text in DrawText to textX
-    // int textWidth = MeasureText(btn->text, btn->textSize);
-    // int textX = btn->bounds.x + btn->bounds.width*0.5f - textWidth*0.5f;
+    /* Uncomment the code below to enable center text alignment
+    *  and change X position parameter of the text in DrawText to textX
+    *  int textWidth = MeasureText(btn->text, btn->textSize);
+    *  int textX = btn->bounds.x + btn->bounds.width*0.5f - textWidth*0.5f;
+    *  */
     int textY = btn->bounds.y + btn->bounds.height*0.5f - btn->textSize*0.5f;
 
     DrawRectangleRec(btn->bounds, btn->bgColor);
     DrawText(btn->text, btn->bounds.x + 20.0f, textY, btn->textSize, btn->textColor);
 }
 
-// Main State
+/*  MainStateWindow */
 
 static Button *ConstructorButtonMainWin(Button *MainWinButton)
 {
@@ -128,7 +128,7 @@ static enum GameeeContextFlags MainWin(struct GameeeContextMetadata *metadata,
     return MainWindows;
 }
 
-// Menu State
+/* MenuStateWindow */
 
 static void ConstructorButtonMenuWin(Button *MenuButtonArray)
 {
@@ -173,9 +173,7 @@ static enum GameeeContextFlags MenuWin(struct GameeeContextMetadata *metadata,
     if (IsKeyPressed(KEY_A)) {
         return MainWindows;
     }
-    if (IsKeyDown(KEY_SPACE)) {
-        vec->y += 10;
-    }
+
     if (IsButtonPressed(&btnArray[0])) return MainWindows;
     if (IsButtonPressed(&btnArray[1])) return MainWindows;
     if (IsButtonPressed(&btnArray[2])) {
@@ -195,7 +193,7 @@ static enum GameeeContextFlags MenuWin(struct GameeeContextMetadata *metadata,
     return MenuWindows;
 }
 
-// Option State
+/* OptionStateWindow */
 
 static void ConstructorButtonOptionWin(Button *OptionButtonArray)
 {
@@ -232,9 +230,9 @@ int main(void) {
     const int screenWidth = 1920, screenHeight = 1200, minScreenWidth = 810,
               minScreenHeight = 600;
 
-    char *memory = (char *)mmapalloc(1024);
+    char *memory = (char *)mmapalloc(1024);      // initialize arena awal fixed 8192
     printf("INFO : initialize first arena\n");
-    char *second_memory = (char *)mmapalloc(32);
+    char *second_memory = (char *)mmapalloc(32); // try : potong 32 byte chunk dari arena
     printf("PTR : %p\n", second_memory);
 
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | // enable resizable window
@@ -249,7 +247,7 @@ int main(void) {
 
     struct GameeeContextMetadata mdata; // Metadata shared
     struct GameeeContextAssets *context_assets = mmapalloc(
-        sizeof(struct GameeeContextAssets) * GAMEEE_MAX_CONTEXT_SWITCH);
+        sizeof(struct GameeeContextAssets) * None);
     if (!context_assets) {
         fprintf(stderr, GAMEEE "failed to allocate struct\n");
         return EXIT_FAILURE;
@@ -260,10 +258,12 @@ int main(void) {
     context_assets[MainWindows].vec = (Vector2){10, 20};
     context_assets[MenuWindows].vec = (Vector2){10, 20};
 
+    /* reserve resource dari stack main */
     Button MainWinButtonMember[3];
     Button MenuWinButtonMember[4];
     Button OptionWinButtonMember[1];
 
+    /* Constructor: init scene data */
     ConstructorButtonMainWin(MainWinButtonMember);
     ConstructorButtonMenuWin(MenuWinButtonMember);
     ConstructorButtonOptionWin(OptionWinButtonMember);
@@ -273,9 +273,7 @@ int main(void) {
     context_assets[OptionWindows].all_castable_metadata = &OptionWinButtonMember;
 
     struct GameeeContextSwitching switchCtx;
-    /*
-     * fungsi struct switch context,menyimpan function to ptr
-     */
+    /* fungsi struct switch context,menyimpan function to ptr */
 
     switchCtx.switchWindows[MainWindows] = MainWin;
     switchCtx.switchWindows[MenuWindows] = MenuWin;
