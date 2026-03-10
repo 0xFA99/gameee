@@ -17,6 +17,7 @@ set(SOURCES
         src/main.c
         include/mmapalloc.h
         src/mmapalloc.c
+        test/test_mmapalloc.c
 )
 
 add_executable(gameee ${SOURCES})

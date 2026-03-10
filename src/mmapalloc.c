@@ -35,6 +35,69 @@
   #define MUTEX_DESTROY(m)    pthread_mutex_destroy(&(m))
 #endif
 
+/*
+ *   mmapalloc adalah memory allocator sederhana yang menggunakan syscall mmap
+ *   di Linux/Unix atau VirtualAlloc di Windows untuk mengalokasikan memori
+ *   yang aligned dan dapat dibebaskan kembali. Alokasi dilakukan dalam arena
+ *   tunggal yang menyimpan metadata setiap chunk untuk manajemen memori internal.
+ *
+ *   union ChunkContext
+ *         size_chunk       : ukuran block yang dapat digunakan
+ *         is_free_chunk    : status free/used
+ *         chunk_magic      : konstanta magic untuk validasi
+ *         next_chunk       : pointer ke chunk berikutnya
+ *
+ *   struct ArenaContext
+ *         size_arena       : ukuran total arena (tidak termasuk metadata)
+ *         offset_arena     : offset terakhir alokasi baru
+ *         block_active_arena: jumlah chunk aktif
+ *         magic_number_arena: MMAPALLOC_MAGIC untuk validasi
+ *         head_list_chunk  : pointer ke head chunk
+ *         tail_list_chunk  : pointer ke tail chunk
+ *         next_arena       : pointer untuk multiple arena (future use)
+ *
+ * -- break --
+ *
+ * features:
+ *   - Automatic memory alignment using __BIGGEST_ALIGNMENT__
+ *   - Free memory with double-free detection
+ *   - Chunk coalescing to reduce fragmentation
+ *   - Thread-safe via mutex (POSIX pthread or Windows CRITICAL_SECTION)
+ *
+ * limitations:
+ *   - Searching for free chunk is linear (O(n))
+ *   - Only one arena is currently supported
+ *   - External fragmentation may occur
+ *
+ * API:
+ *   void *mmapalloc(size_t size)
+ *       Allocates memory of given size bytes, returns pointer to usable memory.
+ *
+ *   void mmapfree(void *ptr)
+ *       Frees previously allocated memory. Detects double-free and corrupt chunks.
+ *
+ *   int mmapalloc_destroy(void)
+ *       Destroys the entire arena, frees underlying memory, and returns
+ *       the number of active blocks remaining before destruction.
+ *
+ * notes:
+ *   - Always check returned pointer from mmapalloc for NULL.
+ *   - Do not call mmapfree on invalid or already freed pointers.
+ *   - Coalescing is automatic during mmapfree, but only merges contiguous free chunks.
+ *   - Arena can be extended in future to support multiple arenas if needed.
+ * thread safety:
+ *   - All allocation and free operations are protected by a mutex.
+ *   - Mutex is initialized on first mmapalloc call and destroyed on mmapalloc_destroy.
+ * align:
+ *   - All allocations are aligned to __BIGGEST_ALIGNMENT__ for portability
+ *   - Ensures safe usage for any data type
+ * notes:
+ *   - Metadata is stored in front of each allocated block (union ChunkContext)
+ *   - mmapalloc uses a global_head_arena to manage chunks
+ *   - expand_offset_arena adds new memory to arena when no suitable free chunk exists
+ *   - os_alloc / os_free wrap platform-specific memory allocation syscalls
+ */
+
 #define MMAPALLOC "mmapalloc: "
 #define ARENA_CONTEXT_DEFAULT_INIT_SIZE (1024 * 32)
 
@@ -180,8 +243,8 @@ static inline void coalesing_chunk()
 }
 
 /*
- * @brief allocated memory size N
- *
+ * @brief allocate byte size N
+ * Allocates memory of given size bytes, returns pointer to usable memory.
  * @param size_t size
  * @return (void *)ptr memory
  */
@@ -274,7 +337,9 @@ void mmapfree(void *chunk_ptr){
 }
 
 /*
- * @brief mmapalloc_destroy() Destroy entire arena
+ * @brief mmapalloc_destroy()
+*   Destroys the entire arena, frees underlying memory, and returns
+ *  the number of active blocks remaining before destruction.
  *
  * @return history of block active
  */
@@ -309,5 +374,3 @@ int mmapalloc_destroy()
 
     return block_remaining;
 }
-
-// Hoam ngantuk
